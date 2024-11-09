@@ -434,10 +434,11 @@ Inner Join Clientes_Deudores CD on c.customerNumber = CD.customerNumber
 ;
 /*************************
 ********** 30 **********
-				  Query Total
+        Query Usando todo el diagrama conectado
 -- customernumber: que pedidos ha realizado, que productos ha comprado,
 detalles de productos comprados, quien es su vendedor, y su ubicacion.
 **************************/
+-- 1° Intento de Forma Duplicada (Mal)
 Select O.customerNumber, O.orderNumber,E.employeeNumber, concat(E.firstName,', ',E.lastName) as Nombre_Empleado,
 OD.productcode,P.productDescription,concat(C.city, ', ',OS.country) as Ubicacion_Empleado
 from customers C
@@ -450,4 +451,50 @@ Inner Join employees E ON C.contactFirstName = E.firstName
 Inner Join offices OS ON E.officeCode = OS.officeCode
 group by O.customerNumber,O.orderNumber, OD.productcode,P.productDescription,E.employeeNumber
 order by O.customerNumber,OD.productcode,O.orderNumber
+;
+
+/*************************
+********** 30 **********
+              Query Usando todo el diagrama conectado
+-- customernumber: que pedidos ha realizado, que productos ha comprado,
+detalles de productos comprados, quien es su vendedor, y su ubicacion.
+**************************/
+-- 2° Intento SIN Duplicados
+With CEO AS (
+Select C.customerNumber, E.employeeNumber, O.officeCode, E.jobtitle,
+concat(E.firstName, ', ', E.lastName) AS Nombre_Empleado,
+concat(O.country, ', ', O.city) AS Ubicacion_Oficina, C.salesRepEmployeeNumber
+from customers C
+LEFT JOIN employees E ON C.salesRepEmployeeNumber = E.employeeNumber
+LEFT JOIN offices O ON E.officecode = O.officecode
+),
+CP AS (
+SELECT C.customerNumber, PY.Amount
+FROM customers C
+LEFT JOIN (
+    SELECT Py.customerNumber, SUM(amount) AS Amount
+    FROM payments PY
+    GROUP BY Py.customerNumber
+) AS PY ON C.customerNumber = PY.customerNumber
+),
+COOD AS (
+SELECT C.customerNumber, C.salesRepEmployeeNumber, OD.productCode, OS.orderNumber, sum(OD.quantityOrdered) as Cantidad_Orden
+FROM customers C
+LEFT JOIN Orders OS ON C.customerNumber = OS.customerNumber
+LEFT JOIN orderdetails OD ON OS.OrderNumber = OD.orderNumber
+group by C.customerNumber, C.salesRepEmployeeNumber, OD.productCode, OS.orderNumber
+),
+PPL AS (
+Select P.productCode, P.productDescription, PL.productLine
+from Products P 
+LEFT JOIN Productlines PL on P.productline = PL.productline
+)
+Select CP.customerNumber, CP.Amount, COOD.ordernumber, 
+COOD.Cantidad_Orden, CEO.Nombre_Empleado, CEO.Ubicacion_Oficina, CEO.employeeNumber, CEO.jobtitle
+FROM CP CP
+Inner JOIN COOD COOD ON Cp.CustomerNumber = COOD.customerNumber
+Inner Join CEO CEO ON COOD.salesRepEmployeeNumber = CEO.EmployeeNumber
+Inner JOIN PPL PPL ON COOD.productCode = PPL.productCode
+;
+		
 ;
